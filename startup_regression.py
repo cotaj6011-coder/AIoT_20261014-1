@@ -22,6 +22,8 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 DATA_PATH = Path("50_Startups.csv")
 COMPARISON_PATH = Path("model_comparison.csv")
 CHART_PATH = Path("model_comparison.png")
+IMPORTANCE_PATH = Path("feature_importance.csv")
+WEB_DATA_PATH = Path("dic-regression-dashboard/dist/data")
 TARGET = "Profit"
 FEATURE_GROUPS = ["R&D Spend", "Administration", "Marketing Spend", "State"]
 RANDOM_STATE = 42
@@ -252,6 +254,48 @@ def evaluate_method(
     }
 
 
+def calculate_group_importance(
+    method: str,
+    features: list[str],
+    X_train: pd.DataFrame,
+    y_train: pd.Series,
+    model: Pipeline | None = None,
+) -> list[dict]:
+    """Calculate normalized absolute coefficient importance by feature group."""
+    importance_model = model
+    if importance_model is None:
+        importance_model = Pipeline(
+            steps=[
+                ("preprocessor", build_preprocessor(features)),
+                ("scaler", StandardScaler()),
+                ("regressor", LinearRegression()),
+            ]
+        )
+        importance_model.fit(X_train[features], y_train)
+
+    names = importance_model.named_steps["preprocessor"].get_feature_names_out()
+    coefficients = importance_model.named_steps["regressor"].coef_
+    raw_importance = {}
+    for feature in features:
+        prefix = "categorical__State_" if feature == "State" else f"numeric__{feature}"
+        values = [
+            coefficient
+            for name, coefficient in zip(names, coefficients)
+            if name == prefix or name.startswith(prefix)
+        ]
+        raw_importance[feature] = float(np.linalg.norm(values))
+
+    total = sum(raw_importance.values()) or 1.0
+    return [
+        {
+            "Method": method,
+            "Feature": feature,
+            "Importance": importance / total,
+        }
+        for feature, importance in raw_importance.items()
+    ]
+
+
 def feature_selection_experiments(
     X_train: pd.DataFrame,
     X_test: pd.DataFrame,
@@ -293,7 +337,19 @@ def feature_selection_experiments(
         for method, features, cv_score, model in experiments
     ]
     comparison = pd.DataFrame(rows).sort_values("CV RMSE").reset_index(drop=True)
+    importance = pd.DataFrame(
+        row
+        for method, features, _, model in experiments
+        for row in calculate_group_importance(
+            method, features, X_train, y_train, model
+        )
+    )
+
     comparison.to_csv(COMPARISON_PATH, index=False)
+    importance.to_csv(IMPORTANCE_PATH, index=False)
+    WEB_DATA_PATH.mkdir(parents=True, exist_ok=True)
+    comparison.to_csv(WEB_DATA_PATH / COMPARISON_PATH.name, index=False)
+    importance.to_csv(WEB_DATA_PATH / IMPORTANCE_PATH.name, index=False)
     create_comparison_chart(comparison)
     return comparison
 
@@ -366,7 +422,9 @@ def main() -> None:
     print(comparison.to_string(index=False, float_format=lambda value: f"{value:,.4f}"))
     print(f"\nBest method: {comparison.iloc[0]['Method']}")
     print(f"Best feature group: {comparison.iloc[0]['Selected Features']}")
-    print(f"\nSaved: {COMPARISON_PATH} and {CHART_PATH}")
+    print(
+        f"\nSaved: {COMPARISON_PATH}, {IMPORTANCE_PATH}, and {CHART_PATH}"
+    )
 
     deployment(baseline)
 
