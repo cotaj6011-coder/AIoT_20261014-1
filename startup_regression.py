@@ -27,6 +27,7 @@ CHART_PATH = Path("model_comparison.png")
 IMPORTANCE_PATH = Path("feature_importance.csv")
 WEB_DATA_PATH = Path("dic-regression-dashboard/dist/data")
 MODEL_DETAILS_PATH = WEB_DATA_PATH / "model_details.json"
+CURVE_PATH = Path("feature_selection_curves.csv")
 TARGET = "Profit"
 FEATURE_GROUPS = ["R&D Spend", "Administration", "Marketing Spend", "State"]
 RANDOM_STATE = 42
@@ -99,6 +100,136 @@ def cv_rmse(
         cv=CV,
     )
     return float(-scores.mean())
+
+
+def cv_metrics(
+    features: list[str], X_train: pd.DataFrame, y_train: pd.Series
+) -> tuple[float, float]:
+    """Return training-only 5-fold CV RMSE and R2 for one feature subset."""
+    model = modeling(features)
+    rmse = -cross_val_score(
+        model, X_train[features], y_train,
+        scoring="neg_root_mean_squared_error", cv=CV,
+    ).mean()
+    r2 = cross_val_score(
+        model, X_train[features], y_train, scoring="r2", cv=CV
+    ).mean()
+    return float(rmse), float(r2)
+
+
+def feature_selection_curves(
+    X_train: pd.DataFrame, y_train: pd.Series
+) -> pd.DataFrame:
+    """Build real CV curves without using or estimating any test-set values."""
+    paths: dict[str, list[list[str]]] = {"Baseline": [FEATURE_GROUPS.copy()]}
+
+    best_subset_path = []
+    for size in range(1, len(FEATURE_GROUPS) + 1):
+        choices = [
+            (list(subset), cv_rmse(list(subset), X_train, y_train))
+            for subset in combinations(FEATURE_GROUPS, size)
+        ]
+        best_subset_path.append(min(choices, key=lambda item: item[1])[0])
+    paths["Best Subset"] = best_subset_path
+
+    forward_path, selected = [], []
+    while len(selected) < len(FEATURE_GROUPS):
+        remaining = [feature for feature in FEATURE_GROUPS if feature not in selected]
+        selected = min(
+            (
+                (selected + [feature], cv_rmse(selected + [feature], X_train, y_train))
+                for feature in remaining
+            ),
+            key=lambda item: item[1],
+        )[0]
+        forward_path.append(selected.copy())
+    paths["Forward SFS"] = forward_path
+
+    backward_path, selected = [], FEATURE_GROUPS.copy()
+    while selected:
+        backward_path.append(selected.copy())
+        if len(selected) == 1:
+            break
+        selected = min(
+            (
+                (
+                    [feature for feature in selected if feature != removed],
+                    cv_rmse(
+                        [feature for feature in selected if feature != removed],
+                        X_train,
+                        y_train,
+                    ),
+                )
+                for removed in selected
+            ),
+            key=lambda item: item[1],
+        )[0]
+    paths["Backward SBS"] = backward_path
+
+    rfe_path, selected = [], FEATURE_GROUPS.copy()
+    while selected:
+        rfe_path.append(selected.copy())
+        if len(selected) == 1:
+            break
+        ranking_model = Pipeline(
+            steps=[
+                ("preprocessor", build_preprocessor(selected)),
+                ("scaler", StandardScaler()),
+                ("regressor", LinearRegression()),
+            ]
+        )
+        ranking_model.fit(X_train[selected], y_train)
+        names = ranking_model.named_steps["preprocessor"].get_feature_names_out()
+        coefficients = ranking_model.named_steps["regressor"].coef_
+        importance = {}
+        for feature in selected:
+            prefix = "categorical__State_" if feature == "State" else f"numeric__{feature}"
+            importance[feature] = float(
+                np.linalg.norm(
+                    [
+                        coefficient
+                        for name, coefficient in zip(names, coefficients)
+                        if name == prefix or name.startswith(prefix)
+                    ]
+                )
+            )
+        selected.remove(min(importance, key=importance.get))
+    paths["RFECV"] = rfe_path
+
+    rows = []
+    for method, feature_sets in paths.items():
+        for features in feature_sets:
+            rmse, r2 = cv_metrics(features, X_train, y_train)
+            rows.append(
+                {
+                    "Method": method,
+                    "Feature Count": len(features),
+                    "Selected Features": ", ".join(features),
+                    "CV RMSE": rmse,
+                    "CV R2": r2,
+                }
+            )
+
+    lasso_features, lasso_rmse, lasso_model = lasso_selection(X_train, y_train)
+    lasso_r2 = cross_val_score(
+        lasso_model, X_train[FEATURE_GROUPS], y_train, scoring="r2", cv=CV
+    ).mean()
+    rows.append(
+        {
+            "Method": "LassoCV",
+            "Feature Count": len(lasso_features),
+            "Selected Features": ", ".join(lasso_features),
+            "CV RMSE": lasso_rmse,
+            "CV R2": float(lasso_r2),
+        }
+    )
+
+    curves = pd.DataFrame(rows).sort_values(["Method", "Feature Count"])
+    curves["Is Best"] = curves.groupby("Method")["CV RMSE"].transform("min").eq(curves["CV RMSE"])
+    curves.to_csv(CURVE_PATH, index=False)
+    WEB_DATA_PATH.mkdir(parents=True, exist_ok=True)
+    curves.to_csv(WEB_DATA_PATH / CURVE_PATH.name, index=False)
+    return curves
 
 
 def best_subset_selection(
@@ -504,6 +635,7 @@ def feature_selection_experiments(
         json.dumps(dashboard_details, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+    feature_selection_curves(X_train, y_train)
     create_comparison_chart(comparison)
     return comparison
 
