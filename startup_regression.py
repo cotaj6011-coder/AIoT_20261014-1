@@ -1,6 +1,7 @@
 """50 Startups multiple linear regression using the CRISP-DM framework."""
 
 from itertools import combinations
+import json
 import os
 from pathlib import Path
 
@@ -17,6 +18,7 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import KFold, cross_val_score, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from scipy.stats import jarque_bera
 
 
 DATA_PATH = Path("50_Startups.csv")
@@ -24,6 +26,7 @@ COMPARISON_PATH = Path("model_comparison.csv")
 CHART_PATH = Path("model_comparison.png")
 IMPORTANCE_PATH = Path("feature_importance.csv")
 WEB_DATA_PATH = Path("dic-regression-dashboard/dist/data")
+MODEL_DETAILS_PATH = WEB_DATA_PATH / "model_details.json"
 TARGET = "Profit"
 FEATURE_GROUPS = ["R&D Spend", "Administration", "Marketing Spend", "State"]
 RANDOM_STATE = 42
@@ -296,6 +299,130 @@ def calculate_group_importance(
     ]
 
 
+def clean_feature_name(name: str) -> str:
+    """Convert transformed feature names to dashboard-friendly labels."""
+    return name.replace("numeric__", "").replace("categorical__", "")
+
+
+def fitted_model_details(
+    method: str,
+    features: list[str],
+    cv_score: float,
+    X_train: pd.DataFrame,
+    X_test: pd.DataFrame,
+    y_train: pd.Series,
+    y_test: pd.Series,
+    model: Pipeline | None,
+) -> dict:
+    """Export real fitted coefficients, predictions, residuals and diagnostics."""
+    fitted = model or modeling(features)
+    model_features = FEATURE_GROUPS if model is not None else features
+    if model is None:
+        fitted.fit(X_train[features], y_train)
+
+    predictions = fitted.predict(X_test[model_features])
+    residuals = y_test.to_numpy() - predictions
+    preprocessor = fitted.named_steps["preprocessor"]
+    transformed_names = [
+        clean_feature_name(name) for name in preprocessor.get_feature_names_out()
+    ]
+    transformed_train = preprocessor.transform(X_train[model_features])
+    regressor = fitted.named_steps["regressor"]
+    coefficients = np.asarray(regressor.coef_, dtype=float)
+    intercept = float(regressor.intercept_)
+
+    if "scaler" in fitted.named_steps:
+        scaler = fitted.named_steps["scaler"]
+        coefficients = coefficients / scaler.scale_
+        intercept -= float(np.dot(regressor.coef_, scaler.mean_ / scaler.scale_))
+
+    coefficient_rows = [
+        {"feature": name, "coefficient": float(coefficient)}
+        for name, coefficient in zip(transformed_names, coefficients)
+        if not np.isclose(coefficient, 0.0)
+    ]
+
+    prediction_residual_correlation = float(
+        np.corrcoef(predictions, residuals)[0, 1]
+    )
+    scale_correlation = float(
+        np.corrcoef(predictions, np.abs(residuals))[0, 1]
+    )
+    durbin_watson = float(
+        np.sum(np.diff(residuals) ** 2) / np.sum(residuals**2)
+    )
+    jb_result = jarque_bera(residuals)
+
+    vif_values = []
+    if transformed_train.shape[1] == 1:
+        vif_values = [1.0]
+    else:
+        for column in range(transformed_train.shape[1]):
+            other_columns = np.delete(transformed_train, column, axis=1)
+            vif_model = LinearRegression().fit(
+                other_columns, transformed_train[:, column]
+            )
+            vif_values.append(1.0 / max(1e-12, 1.0 - vif_model.score(
+                other_columns, transformed_train[:, column]
+            )))
+    max_vif = float(max(vif_values))
+
+    assumptions = [
+        {
+            "name": "線性關係",
+            "value": abs(prediction_residual_correlation),
+            "display": f"|corr(ŷ, residual)| = {abs(prediction_residual_correlation):.3f}",
+            "passed": bool(abs(prediction_residual_correlation) < 0.2),
+        },
+        {
+            "name": "誤差獨立性",
+            "value": durbin_watson,
+            "display": f"Durbin-Watson = {durbin_watson:.3f}",
+            "passed": bool(1.5 <= durbin_watson <= 2.5),
+        },
+        {
+            "name": "同質變異性",
+            "value": abs(scale_correlation),
+            "display": f"|corr(ŷ, |residual|)| = {abs(scale_correlation):.3f}",
+            "passed": bool(abs(scale_correlation) < 0.3),
+        },
+        {
+            "name": "殘差常態性",
+            "value": float(jb_result.pvalue),
+            "display": f"Jarque-Bera p = {jb_result.pvalue:.3f}",
+            "passed": bool(jb_result.pvalue > 0.05),
+        },
+        {
+            "name": "無嚴重共線性",
+            "value": max_vif,
+            "display": f"Maximum VIF = {max_vif:.3f}",
+            "passed": bool(max_vif < 5),
+        },
+    ]
+
+    return {
+        "method": method,
+        "selectedFeatures": features,
+        "cvRmse": cv_score,
+        "testRmse": float(mean_squared_error(y_test, predictions) ** 0.5),
+        "testR2": float(r2_score(y_test, predictions)),
+        "intercept": intercept,
+        "coefficients": coefficient_rows,
+        "testRows": [
+            {
+                "index": int(index),
+                "actual": float(actual),
+                "predicted": float(predicted),
+                "residual": float(residual),
+            }
+            for index, actual, predicted, residual in zip(
+                y_test.index, y_test, predictions, residuals
+            )
+        ],
+        "assumptions": assumptions,
+    }
+
+
 def feature_selection_experiments(
     X_train: pd.DataFrame,
     X_test: pd.DataFrame,
@@ -350,6 +477,33 @@ def feature_selection_experiments(
     WEB_DATA_PATH.mkdir(parents=True, exist_ok=True)
     comparison.to_csv(WEB_DATA_PATH / COMPARISON_PATH.name, index=False)
     importance.to_csv(WEB_DATA_PATH / IMPORTANCE_PATH.name, index=False)
+    dashboard_details = {
+        "metadata": {
+            "dataset": "50_Startups.csv",
+            "randomState": RANDOM_STATE,
+            "testSize": 0.2,
+            "cvFolds": 5,
+            "trainIndices": [int(index) for index in X_train.index],
+            "testIndices": [int(index) for index in X_test.index],
+        },
+        "models": [
+            fitted_model_details(
+                method,
+                features,
+                cv_score,
+                X_train,
+                X_test,
+                y_train,
+                y_test,
+                model,
+            )
+            for method, features, cv_score, model in experiments
+        ],
+    }
+    MODEL_DETAILS_PATH.write_text(
+        json.dumps(dashboard_details, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
     create_comparison_chart(comparison)
     return comparison
 
