@@ -1,15 +1,6 @@
-const problems = {
-  startup: {
-    url: "https://raw.githubusercontent.com/Avik-Jain/100-Days-Of-ML-Code/master/datasets/50_Startups.csv",
-    target: "Profit"
-  },
-  advertising: {
-    url: "https://raw.githubusercontent.com/selva86/datasets/master/Advertising.csv",
-    target: "sales"
-  }
-};
-
-const els = Object.fromEntries(["problem","datasetUrl","csvFile","runButton","status","bestK","bestRmse","bestR2","rowCount","targetBadge","resultsBody"].map(id => [id, document.getElementById(id)]));
+const DATASET_URL = "https://raw.githubusercontent.com/Avik-Jain/100-Days-Of-ML-Code/master/datasets/50_Startups.csv";
+const TARGET = "Profit";
+const els = Object.fromEntries(["status","bestK","bestRmse","bestR2","rowCount","targetBadge","resultsBody"].map(id => [id, document.getElementById(id)]));
 let rmseChart;
 let r2Chart;
 
@@ -123,33 +114,20 @@ function render(rows, analysis) {
 }
 
 async function run() {
-  els.runButton.disabled = true;
   els.status.textContent = "分析中…";
   try {
-    let text;
-    if (els.csvFile.files[0]) text = await els.csvFile.files[0].text();
-    else {
-      const response = await fetch(els.datasetUrl.value.trim());
-      if (!response.ok) throw new Error(`Dataset 載入失敗 (${response.status})`);
-      text = await response.text();
-    }
+    const response = await fetch(DATASET_URL);
+    if (!response.ok) throw new Error(`Dataset 載入失敗 (${response.status})`);
+    const text = await response.text();
     const rows = parseCsv(text);
-    const output = analyze(rows, problems[els.problem.value].target);
+    const output = analyze(rows, TARGET);
     render(rows, output);
     els.status.textContent = "分析完成";
     els.status.classList.remove("error");
   } catch (error) {
     els.status.textContent = error.message;
     els.status.classList.add("error");
-  } finally { els.runButton.disabled = false; }
+  }
 }
 
-els.problem.addEventListener("change", () => {
-  els.csvFile.value = "";
-  els.datasetUrl.value = problems[els.problem.value].url;
-  run();
-});
-els.csvFile.addEventListener("change", () => { if (els.csvFile.files[0]) { els.datasetUrl.value = els.csvFile.files[0].name; run(); } });
-els.runButton.addEventListener("click", run);
-els.datasetUrl.value = problems.startup.url;
 run();
