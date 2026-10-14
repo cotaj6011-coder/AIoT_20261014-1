@@ -17,6 +17,8 @@
 
 `State` 使用 One-Hot Encoding，並刪除第一個類別作為基準，避免 dummy variable trap。
 
+網站提供模型切換、圖表縮放與篩選、自訂特徵重訓、即時 Profit 預測、迴歸公式、係數、殘差分析及五大迴歸假設檢查。預設模型資料由 Python 實驗輸出；自訂模型沿用固定 Training/Test split，Test Set 僅在訓練完成後評估一次。
+
 ## CRISP-DM 流程
 
 1. Business Understanding：預測新創公司的 Profit。
