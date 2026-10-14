@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DIC 多元線性迴歸分析</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=Source+Serif+4:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--ink:#17211d;--muted:#64716b;--paper:#f5f2ea;--card:#fffdf8;--line:#ded9ce;--green:#1f6f54;--green2:#34866a;--amber:#d79a3b;--red:#a84f40;--shadow:0 16px 40px rgba(40,48,43,.09)}
+    *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:"Noto Sans TC",sans-serif}.shell{max-width:1240px;margin:auto;padding:42px 24px 64px}
+    header{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;margin-bottom:28px}.eyebrow{color:var(--green);font-weight:700;letter-spacing:.13em;font-size:12px;text-transform:uppercase}h1{font-family:"Source Serif 4",serif;font-size:clamp(34px,5vw,58px);line-height:1;margin:8px 0 12px;letter-spacing:-.035em}.intro{color:var(--muted);max-width:700px;margin:0;line-height:1.7}.status{padding:10px 14px;border:1px solid #b8d2c6;background:#e9f4ef;color:var(--green);border-radius:999px;font-weight:700;font-size:13px;white-space:nowrap}
+    .panel{background:var(--card);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow)}.controls{padding:22px;display:grid;grid-template-columns:1.1fr 2fr auto;gap:14px;align-items:end;margin-bottom:20px}.field label{display:block;font-size:12px;color:var(--muted);font-weight:700;margin:0 0 7px}.field input,.field select{width:100%;height:44px;border:1px solid var(--line);background:white;border-radius:11px;padding:0 12px;font:inherit;color:var(--ink)}.field input:focus,.field select:focus{outline:3px solid rgba(31,111,84,.12);border-color:var(--green)}button{height:44px;border:0;border-radius:11px;padding:0 22px;background:var(--green);color:white;font:inherit;font-weight:700;cursor:pointer}button:hover{background:#195b45}.file-label{display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 16px;border:1px dashed var(--green2);border-radius:11px;color:var(--green);font-size:13px;font-weight:700;cursor:pointer}.file-label input{display:none}.dataset-row{display:flex;gap:9px}.dataset-row input{min-width:0}.dataset-row .file-label{flex:none}
+    .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}.metric{padding:19px 20px}.metric small{display:block;color:var(--muted);font-size:12px;font-weight:700}.metric strong{display:block;margin-top:7px;font-family:"Source Serif 4",serif;font-size:26px}.metric.accent{background:var(--green);color:white;border-color:var(--green)}.metric.accent small{color:#cce2d9}
+    .charts{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}.chart-card{padding:22px}.card-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}.card-title h2{font-family:"Source Serif 4",serif;font-size:22px;margin:0}.hint{color:var(--muted);font-size:12px}.chart-wrap{height:330px}
+    .table-card{overflow:hidden}.table-head{padding:22px 22px 14px;display:flex;justify-content:space-between;align-items:center}.table-head h2{font-family:"Source Serif 4",serif;margin:0;font-size:22px}.badge{background:#f0eadc;color:#7b5b22;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:700}.table-scroll{overflow:auto}table{width:100%;border-collapse:collapse;font-size:14px}th{text-align:left;color:var(--muted);font-size:12px;letter-spacing:.03em;background:#f7f4ed}th,td{padding:14px 18px;border-top:1px solid #ebe7de}tbody tr.best{background:#edf7f2}tbody tr.best td:first-child{box-shadow:inset 4px 0 var(--green)}.features{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px}.good{color:var(--green);font-weight:700}.error{color:var(--red)}footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:right}
+    @media(max-width:850px){header{align-items:flex-start;flex-direction:column}.controls{grid-template-columns:1fr}.summary{grid-template-columns:1fr 1fr}.charts{grid-template-columns:1fr}.chart-wrap{height:280px}}@media(max-width:520px){.shell{padding:25px 14px}.summary{grid-template-columns:1fr}.dataset-row{flex-direction:column}.file-label{width:100%}}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div><div class="eyebrow">CRISP-DM · Regression Lab</div><h1>多元線性迴歸分析</h1><p class="intro">依特徵數量比較測試集 RMSE 與 R²，快速找出兼顧準確度與精簡度的模型。</p></div>
+      <div class="status" id="status">準備載入資料</div>
+    </header>
+
+    <section class="panel controls" aria-label="資料控制">
+      <div class="field"><label for="problem">Problem</label><select id="problem"><option value="startup">Problem 1 · 50 Startups Profit</option><option value="advertising">Problem 2 · Advertising Sales</option></select></div>
+      <div class="field"><label for="datasetUrl">Dataset URL 或上傳 CSV</label><div class="dataset-row"><input id="datasetUrl" type="url" aria-label="Dataset URL"><label class="file-label">上傳 CSV<input id="csvFile" type="file" accept=".csv,text/csv"></label></div></div>
+      <button id="runButton" type="button">載入並分析</button>
+    </section>
+
+    <section class="summary" aria-label="模型摘要">
+      <article class="panel metric accent"><small>最佳特徵數</small><strong id="bestK">—</strong></article>
+      <article class="panel metric"><small>最佳 RMSE</small><strong id="bestRmse">—</strong></article>
+      <article class="panel metric"><small>最佳 R²</small><strong id="bestR2">—</strong></article>
+      <article class="panel metric"><small>資料筆數</small><strong id="rowCount">—</strong></article>
+    </section>
+
+    <section class="charts">
+      <article class="panel chart-card"><div class="card-title"><h2>RMSE by Number of Features</h2><span class="hint">越低越好</span></div><div class="chart-wrap"><canvas id="rmseChart"></canvas></div></article>
+      <article class="panel chart-card"><div class="card-title"><h2>R-squared by Number of Features</h2><span class="hint">越高越好</span></div><div class="chart-wrap"><canvas id="r2Chart"></canvas></div></article>
+    </section>
+
+    <section class="panel table-card">
+      <div class="table-head"><h2>Feature Selection Results</h2><span class="badge" id="targetBadge">Target: —</span></div>
+      <div class="table-scroll"><table><thead><tr><th>Number of Features</th><th>Selected Features</th><th>RMSE</th><th>R-squared</th></tr></thead><tbody id="resultsBody"></tbody></table></div>
+    </section>
+    <footer>80/20 train-test split · Correlation ranking · Ordinary Least Squares</footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
