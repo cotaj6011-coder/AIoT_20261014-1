@@ -1,0 +1,19 @@
+Method,Feature Count,Selected Features,CV RMSE,CV R2,Is Best
+Backward SBS,1,R&D Spend,9406.578720181318,0.93837368355318,False
+Backward SBS,2,"R&D Spend, Administration",9163.345362948923,0.9390200301374667,False
+Backward SBS,3,"R&D Spend, Administration, Marketing Spend",9104.681197069245,0.9399392913746606,True
+Backward SBS,4,"R&D Spend, Administration, Marketing Spend, State",9550.67610568526,0.9340039511035654,False
+Baseline,4,"R&D Spend, Administration, Marketing Spend, State",9550.67610568526,0.9340039511035654,True
+Best Subset,1,R&D Spend,9406.578720181318,0.93837368355318,False
+Best Subset,2,"R&D Spend, Administration",9163.345362948923,0.9390200301374667,False
+Best Subset,3,"R&D Spend, Administration, Marketing Spend",9104.681197069245,0.9399392913746606,True
+Best Subset,4,"R&D Spend, Administration, Marketing Spend, State",9550.67610568526,0.9340039511035654,False
+Forward SFS,1,R&D Spend,9406.578720181318,0.93837368355318,False
+Forward SFS,2,"R&D Spend, Administration",9163.345362948923,0.9390200301374667,False
+Forward SFS,3,"R&D Spend, Administration, Marketing Spend",9104.681197069245,0.9399392913746606,True
+Forward SFS,4,"R&D Spend, Administration, Marketing Spend, State",9550.67610568526,0.9340039511035654,False
+LassoCV,3,"R&D Spend, Administration, Marketing Spend",9110.460194308365,0.942370003287559,True
+RFECV,1,R&D Spend,9406.578720181318,0.93837368355318,False
+RFECV,2,"R&D Spend, Marketing Spend",9186.680413894432,0.9415997343689559,False
+RFECV,3,"R&D Spend, Administration, Marketing Spend",9104.681197069245,0.9399392913746606,True
+RFECV,4,"R&D Spend, Administration, Marketing Spend, State",9550.67610568526,0.9340039511035654,False
