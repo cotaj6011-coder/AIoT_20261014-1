@@ -2,6 +2,8 @@
 
 ## Demo
 
+**GitHub：** [https://github.com/cotaj6011-coder/AIoT_20261014-1](https://github.com/cotaj6011-coder/AIoT_20261014-1)
+
 **網站：** [https://cotaj6011-coder.github.io/AIoT_20261014-1/](https://cotaj6011-coder.github.io/AIoT_20261014-1/)
 
 ![50 Startups 網站截圖](dic-regression-dashboard-preview.png)
