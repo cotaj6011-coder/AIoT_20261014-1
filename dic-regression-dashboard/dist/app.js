@@ -120,18 +120,21 @@ function render(rows, analysis) {
 }
 
 function renderExperimentResults(comparison, importance) {
-  const best = comparison.reduce((a, b) => b.cvRmse < a.cvRmse ? b : a);
+  const bestCvRmse = Math.min(...comparison.map(row => row.cvRmse));
+  const isBest = row => Math.abs(row.cvRmse - bestCvRmse) < 0.01;
+  const bestModels = comparison.filter(isBest);
   const baseline = comparison.find(row => row.method === "Baseline");
   const bestTest = comparison.reduce((a, b) => b.testRmse < a.testRmse ? b : a);
-  const improvement = ((baseline.cvRmse - best.cvRmse) / baseline.cvRmse) * 100;
+  const improvement = ((baseline.cvRmse - bestCvRmse) / baseline.cvRmse) * 100;
 
-  document.getElementById("bestModelBadge").textContent = `Best CV RMSE · ${best.method}`;
+  document.getElementById("bestModelBadge").textContent = `最佳 CV RMSE · ${bestModels.map(row => row.method).join("、")}`;
   document.getElementById("modelComparisonBody").innerHTML = comparison.map(row => `
-    <tr class="${row.method === best.method ? "best" : ""}">
+    <tr class="${isBest(row) ? "best" : ""}">
       <td><strong>${row.method}</strong></td>
       <td class="features">${row.features}</td>
       <td>${row.count}</td>
-      <td class="${row.method === best.method ? "good" : ""}">${row.cvRmse.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td>${row.encodedCount}</td>
+      <td class="${isBest(row) ? "good" : ""}">${row.cvRmse.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
       <td>${row.testRmse.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
       <td>${row.testR2.toFixed(4)}</td>
     </tr>`).join("");
@@ -139,7 +142,7 @@ function renderExperimentResults(comparison, importance) {
   const chartOptions = title => ({responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"top"}},scales:{x:{grid:{display:false}},y:{title:{display:true,text:title},grid:{color:"#ebe7de"}}}});
   const drawComparisonCharts = rows => {
     const labels = rows.map(row => row.method);
-    const bestColors = rows.map(row => row.method === best.method ? "#1f6f54" : "#9fb8ad");
+    const bestColors = rows.map(row => isBest(row) ? "#1f6f54" : "#9fb8ad");
     modelRmseChart?.destroy(); modelR2Chart?.destroy();
     modelRmseChart = new Chart(document.getElementById("modelRmseChart"), {
       type:"bar", data:{labels,datasets:[
@@ -161,8 +164,8 @@ function renderExperimentResults(comparison, importance) {
   });
 
   document.getElementById("analysisConclusion").textContent =
-    `${best.method} 的 CV RMSE 最低（${best.cvRmse.toLocaleString(undefined,{maximumFractionDigits:2})}），選出 ${best.features}，相較 Baseline 改善 ${improvement.toFixed(2)}%。` +
-    ` ${bestTest.method} 的 Test RMSE 最低（${bestTest.testRmse.toLocaleString(undefined,{maximumFractionDigits:2})}），Test R² 為 ${bestTest.testR2.toFixed(4)}。` +
+    `${bestModels.map(row => row.method).join("、")} 的 CV RMSE 並列最低（${bestCvRmse.toLocaleString(undefined,{maximumFractionDigits:2})}），相較 Baseline 改善 ${improvement.toFixed(2)}%。` +
+    ` Test Set 僅供最終評估；其中 ${bestTest.method} 的 Test RMSE 最低（${bestTest.testRmse.toLocaleString(undefined,{maximumFractionDigits:2})}），Test R² 為 ${bestTest.testR2.toFixed(4)}。` +
     ` 五種選擇方法皆排除 State，顯示本次資料切分下地區資訊未帶來額外預測效益。`;
 
   const grouped = importance.reduce((groups, row) => {
@@ -171,7 +174,7 @@ function renderExperimentResults(comparison, importance) {
   }, {});
   document.getElementById("importanceGrid").innerHTML = comparison.map(model => {
     const rows = grouped[model.method] || [];
-    return `<article class="panel method-card"><h3>${model.method}</h3><div class="method-meta">${model.count} feature groups</div>${rows.map(row => `
+    return `<article class="panel method-card"><h3>${model.method}</h3><div class="method-meta">${model.count} 個原始特徵群組 · ${model.encodedCount} 個 OHE 後欄位</div>${rows.map(row => `
       <div class="importance-row"><span>${row.feature}</span><div class="importance-track"><div class="importance-fill" style="width:${(row.importance*100).toFixed(2)}%"></div></div><span class="importance-value">${(row.importance*100).toFixed(1)}%</span></div>`).join("")}</article>`;
   }).join("");
 }
@@ -205,7 +208,9 @@ function zoomOptions() {
 
 function renderActiveModel(model) {
   activeDashboardModel = model;
-  document.getElementById("activeMethod").textContent = model.method;
+  document.getElementById("activeMethod").textContent = model.method === "Custom" ? "Custom（自訂）" : model.method;
+  document.getElementById("activeRawCount").textContent = model.selectedFeatures.length;
+  document.getElementById("activeEncodedCount").textContent = model.coefficients.length;
   document.getElementById("activeCvRmse").textContent = formatMoney(model.cvRmse);
   document.getElementById("activeTestRmse").textContent = formatMoney(model.testRmse);
   document.getElementById("activeTestR2").textContent = model.testR2.toFixed(4);
@@ -224,17 +229,17 @@ function renderActiveModel(model) {
   actualPredictedChart?.destroy(); residualChart?.destroy();
   actualPredictedChart = new Chart(document.getElementById("actualPredictedChart"), {
     type:"scatter", data:{datasets:[
-      {label:"Test samples",data:points,backgroundColor:"#1f6f54",pointRadius:6},
-      {label:"Perfect prediction",data:[{x:min,y:min},{x:max,y:max}],type:"line",borderColor:"#d79a3b",borderDash:[6,5],pointRadius:0}
+      {label:"Test 樣本",data:points,backgroundColor:"#1f6f54",pointRadius:6},
+      {label:"理想預測線",data:[{x:min,y:min},{x:max,y:max}],type:"line",borderColor:"#d79a3b",borderDash:[6,5],pointRadius:0}
     ]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{zoom:zoomOptions(),tooltip:{callbacks:{label:ctx=>ctx.raw.index === undefined ? "Perfect prediction" : `Startup #${ctx.raw.index}: actual ${formatMoney(ctx.raw.x)}, predicted ${formatMoney(ctx.raw.y)}`}}},scales:{x:{title:{display:true,text:"Actual Profit"}},y:{title:{display:true,text:"Predicted Profit"}}}}
+    options:{responsive:true,maintainAspectRatio:false,plugins:{zoom:zoomOptions(),tooltip:{callbacks:{label:ctx=>ctx.raw.index === undefined ? "理想預測線" : `Startup #${ctx.raw.index}：實際 ${formatMoney(ctx.raw.x)}，預測 ${formatMoney(ctx.raw.y)}`}}},scales:{x:{title:{display:true,text:"實際 Profit"}},y:{title:{display:true,text:"預測 Profit"}}}}
   });
   residualChart = new Chart(document.getElementById("residualChart"), {
     type:"scatter", data:{datasets:[
-      {label:"Residual",data:residualPoints,backgroundColor:"#a84f40",pointRadius:6},
-      {label:"Zero line",data:[{x:Math.min(...residualPoints.map(p=>p.x)),y:0},{x:Math.max(...residualPoints.map(p=>p.x)),y:0}],type:"line",borderColor:"#64716b",pointRadius:0}
+      {label:"殘差",data:residualPoints,backgroundColor:"#a84f40",pointRadius:6},
+      {label:"零基準線",data:[{x:Math.min(...residualPoints.map(p=>p.x)),y:0},{x:Math.max(...residualPoints.map(p=>p.x)),y:0}],type:"line",borderColor:"#64716b",pointRadius:0}
     ]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{zoom:zoomOptions(),tooltip:{callbacks:{label:ctx=>ctx.raw.index === undefined ? "Residual = 0" : `Startup #${ctx.raw.index}: residual ${formatMoney(ctx.raw.y)}`}}},scales:{x:{title:{display:true,text:"Predicted Profit"}},y:{title:{display:true,text:"Residual"}}}}
+    options:{responsive:true,maintainAspectRatio:false,plugins:{zoom:zoomOptions(),tooltip:{callbacks:{label:ctx=>ctx.raw.index === undefined ? "殘差 = 0" : `Startup #${ctx.raw.index}：殘差 ${formatMoney(ctx.raw.y)}`}}},scales:{x:{title:{display:true,text:"預測 Profit"}},y:{title:{display:true,text:"殘差"}}}}
   });
   document.querySelectorAll("#featureChecks input").forEach(input => { input.checked = model.selectedFeatures.includes(input.value); });
   updateLivePrediction();
@@ -331,6 +336,7 @@ function initializeInteractivePlatform(details,dataset) {
 }
 
 async function loadExperimentResults() {
+  document.getElementById("status").textContent = "載入實驗資料…";
   const [comparisonResponse, importanceResponse, detailsResponse, datasetResponse] = await Promise.all([
     fetch("data/model_comparison.csv"),
     fetch("data/feature_importance.csv"),
@@ -338,13 +344,15 @@ async function loadExperimentResults() {
     fetch(DATASET_URL)
   ]);
   if (!comparisonResponse.ok || !importanceResponse.ok || !detailsResponse.ok || !datasetResponse.ok) throw new Error("實驗結果載入失敗");
+  const details = await detailsResponse.json();
   const comparison = parseCsv(await comparisonResponse.text()).map(row => ({
     method: row.Method,
     features: row["Selected Features"],
     count: Number(row["Feature Count"]),
     cvRmse: Number(row["CV RMSE"]),
     testRmse: Number(row["Test RMSE"]),
-    testR2: Number(row["Test R2"])
+    testR2: Number(row["Test R2"]),
+    encodedCount: details.models.find(model => model.method === row.Method).coefficients.length
   }));
   const importance = parseCsv(await importanceResponse.text()).map(row => ({
     method: row.Method,
@@ -352,7 +360,8 @@ async function loadExperimentResults() {
     importance: Number(row.Importance)
   }));
   renderExperimentResults(comparison, importance);
-  initializeInteractivePlatform(await detailsResponse.json(), parseCsv(await datasetResponse.text()));
+  initializeInteractivePlatform(details, parseCsv(await datasetResponse.text()));
+  document.getElementById("status").textContent = "分析就緒";
 }
 
 async function run() {
@@ -372,7 +381,8 @@ async function run() {
   }
 }
 
-run();
 loadExperimentResults().catch(error => {
   document.getElementById("analysisConclusion").textContent = error.message;
+  document.getElementById("status").textContent = error.message;
+  document.getElementById("status").classList.add("error");
 });
