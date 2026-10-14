@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>50 Startups 多元線性迴歸</title>
+  <link rel="icon" href="data:,">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,8 +16,9 @@
     .panel{background:var(--card);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow)}
     .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}.metric{padding:19px 20px}.metric small{display:block;color:var(--muted);font-size:12px;font-weight:700}.metric strong{display:block;margin-top:7px;font-family:"Source Serif 4",serif;font-size:26px}.metric.accent{background:var(--green);color:white;border-color:var(--green)}.metric.accent small{color:#cce2d9}
     .charts{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}.chart-card{padding:22px}.card-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}.card-title h2{font-family:"Source Serif 4",serif;font-size:22px;margin:0}.hint{color:var(--muted);font-size:12px}.chart-wrap{height:330px}
-    .table-card{overflow:hidden}.table-head{padding:22px 22px 14px;display:flex;justify-content:space-between;align-items:center}.table-head h2{font-family:"Source Serif 4",serif;margin:0;font-size:22px}.badge{background:#f0eadc;color:#7b5b22;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:700}.table-scroll{overflow:auto}table{width:100%;border-collapse:collapse;font-size:14px}th{text-align:left;color:var(--muted);font-size:12px;letter-spacing:.03em;background:#f7f4ed}th,td{padding:14px 18px;border-top:1px solid #ebe7de}tbody tr.best{background:#edf7f2}tbody tr.best td:first-child{box-shadow:inset 4px 0 var(--green)}.features{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px}.good{color:var(--green);font-weight:700}.error{color:var(--red)}footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:right}
-    @media(max-width:850px){header{align-items:flex-start;flex-direction:column}.summary{grid-template-columns:1fr 1fr}.charts{grid-template-columns:1fr}.chart-wrap{height:280px}}@media(max-width:520px){.shell{padding:25px 14px}.summary{grid-template-columns:1fr}}
+    .table-card{overflow:hidden}.table-head{padding:22px 22px 14px;display:flex;justify-content:space-between;align-items:center}.table-head h2{font-family:"Source Serif 4",serif;margin:0;font-size:22px}.badge{background:#f0eadc;color:#7b5b22;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:700}.table-scroll{overflow:auto}table{width:100%;border-collapse:collapse;font-size:14px}th{text-align:left;color:var(--muted);font-size:12px;letter-spacing:.03em;background:#f7f4ed}th,td{padding:14px 18px;border-top:1px solid #ebe7de}tbody tr.best{background:#edf7f2}tbody tr.best td:first-child{box-shadow:inset 4px 0 var(--green)}.features{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px}.good{color:var(--green);font-weight:700}.error{color:var(--red)}
+    .model-section{margin-top:34px}.section-intro{margin:0 0 16px}.section-intro h2{font-family:"Source Serif 4",serif;font-size:30px;margin:0 0 7px}.section-intro p{color:var(--muted);margin:0}.analysis-card{padding:24px;margin:20px 0;background:linear-gradient(135deg,#1f6f54,#184d3d);color:white}.analysis-card h2{font-family:"Source Serif 4",serif;margin:0 0 10px}.analysis-card p{margin:0;line-height:1.8;color:#e5f2ec}.importance-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.method-card{padding:18px}.method-card h3{margin:0 0 4px;font-size:16px}.method-meta{color:var(--muted);font-size:12px;margin-bottom:14px}.importance-row{display:grid;grid-template-columns:120px 1fr 42px;gap:9px;align-items:center;margin-top:9px;font-size:12px}.importance-track{height:7px;background:#e8e4da;border-radius:99px;overflow:hidden}.importance-fill{height:100%;background:var(--green2);border-radius:99px}.importance-value{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:right}
+    @media(max-width:900px){header{align-items:flex-start;flex-direction:column}.summary{grid-template-columns:1fr 1fr}.charts{grid-template-columns:1fr}.importance-grid{grid-template-columns:1fr 1fr}.chart-wrap{height:280px}}@media(max-width:560px){.shell{padding:25px 14px}.summary,.importance-grid{grid-template-columns:1fr}.importance-row{grid-template-columns:105px 1fr 40px}}
   </style>
 </head>
 <body>
@@ -41,6 +43,24 @@
     <section class="panel table-card">
       <div class="table-head"><h2>Feature Selection Results</h2><span class="badge" id="targetBadge">Target: —</span></div>
       <div class="table-scroll"><table><thead><tr><th>Number of Features</th><th>Selected Features</th><th>RMSE</th><th>R-squared</th></tr></thead><tbody id="resultsBody"></tbody></table></div>
+    </section>
+
+    <section class="model-section" aria-labelledby="modelComparisonTitle">
+      <div class="section-intro"><h2 id="modelComparisonTitle">六種模型效能比較</h2><p>所有特徵選擇與調參僅使用 Training Set，並採 5-Fold Cross-Validation。</p></div>
+      <section class="panel table-card">
+        <div class="table-head"><h2>Model Comparison</h2><span class="badge" id="bestModelBadge">載入實驗結果…</span></div>
+        <div class="table-scroll"><table><thead><tr><th>Method</th><th>Selected Features</th><th>Feature Count</th><th>CV RMSE</th><th>Test RMSE</th><th>Test R²</th></tr></thead><tbody id="modelComparisonBody"></tbody></table></div>
+      </section>
+
+      <section class="charts" style="margin-top:20px">
+        <article class="panel chart-card"><div class="card-title"><h2>CV / Test RMSE</h2><span class="hint">最佳 CV 方法以綠色標示</span></div><div class="chart-wrap"><canvas id="modelRmseChart"></canvas></div></article>
+        <article class="panel chart-card"><div class="card-title"><h2>Test R-squared</h2><span class="hint">越高越好</span></div><div class="chart-wrap"><canvas id="modelR2Chart"></canvas></div></article>
+      </section>
+
+      <article class="panel analysis-card"><h2>分析結論</h2><p id="analysisConclusion">正在讀取實際實驗結果…</p></article>
+
+      <div class="section-intro"><h2>特徵選擇與重要性</h2><p>重要性為各模型標準化係數絕對值的群組占比；State 的 dummy variables 合併計算。</p></div>
+      <section class="importance-grid" id="importanceGrid"></section>
     </section>
     <footer>80/20 train-test split · Correlation ranking · Ordinary Least Squares</footer>
   </main>
