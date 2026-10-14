@@ -179,6 +179,43 @@ function renderExperimentResults(comparison, importance) {
   }).join("");
 }
 
+function renderFeatureCurves(rows) {
+  const colors={"Baseline":"#17211d","Best Subset":"#1f6f54","RFECV":"#4b7bec","LassoCV":"#d79a3b","Forward SFS":"#8e5ea2","Backward SBS":"#a84f40"};
+  const methods=["Baseline","Best Subset","RFECV","LassoCV","Forward SFS","Backward SBS"];
+  const controls=document.getElementById("curveMethods");
+  let mode="multi";
+  controls.innerHTML=methods.map(method=>`<button class="chip" type="button" data-value="${method}" aria-pressed="true">${method}</button>`).join("");
+
+  const draw=()=>{
+    const selected=[...controls.querySelectorAll('.chip[aria-pressed="true"]')].map(button=>button.dataset.value);
+    const datasets=metric=>methods.filter(method=>selected.includes(method)).map(method=>{
+      const points=rows.filter(row=>row.method===method).sort((a,b)=>a.count-b.count);
+      return {label:method,data:points.map(row=>({x:row.count,y:row[metric],features:row.features,best:row.best})),borderColor:colors[method],backgroundColor:colors[method],showLine:points.length>1,tension:.15,spanGaps:false,pointRadius:points.map(row=>row.best?7:4),pointStyle:points.map(row=>row.best?"star":"circle"),borderWidth:2};
+    });
+    const options=metric=>({responsive:true,maintainAspectRatio:false,interaction:{mode:"nearest",intersect:false},plugins:{legend:{position:"bottom"},tooltip:{callbacks:{title:items=>`${items[0].dataset.label} · ${items[0].raw.x} 個特徵群組`,label:item=>`${metric==="rmse"?"CV RMSE":"CV R²"}: ${item.raw.y.toLocaleString(undefined,{maximumFractionDigits:4})}`,afterLabel:item=>`${item.raw.best?"★ 該方法最佳\n":""}${item.raw.features}`}}},scales:{x:{type:"linear",min:1,max:4,ticks:{stepSize:1},title:{display:true,text:"原始特徵群組數"},grid:{color:"#ebe7de"}},y:{title:{display:true,text:metric==="rmse"?"CV RMSE":"CV R²"},grid:{color:"#ebe7de"}}}});
+    rmseChart?.destroy(); r2Chart?.destroy();
+    rmseChart=new Chart(document.getElementById("rmseChart"),{type:"line",data:{datasets:datasets("rmse")},options:options("rmse")});
+    r2Chart=new Chart(document.getElementById("r2Chart"),{type:"line",data:{datasets:datasets("r2")},options:options("r2")});
+  };
+
+  controls.addEventListener("click",event=>{
+    const button=event.target.closest(".chip"); if(!button)return;
+    if(mode==="single") controls.querySelectorAll(".chip").forEach(item=>item.setAttribute("aria-pressed",item===button));
+    else button.setAttribute("aria-pressed",button.getAttribute("aria-pressed")!=="true");
+    if(!controls.querySelector('.chip[aria-pressed="true"]')) button.setAttribute("aria-pressed","true");
+    draw();
+  });
+  setupSegmented(document.getElementById("curveMode"),value=>{
+    mode=value;
+    if(mode==="single") {
+      const active=controls.querySelector('.chip[aria-pressed="true"]')||controls.querySelector(".chip");
+      controls.querySelectorAll(".chip").forEach(item=>item.setAttribute("aria-pressed",item===active));
+    } else controls.querySelectorAll(".chip").forEach(item=>item.setAttribute("aria-pressed","true"));
+    draw();
+  });
+  draw();
+}
+
 function formatMoney(value) {
   return Number(value).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 }
@@ -385,13 +422,14 @@ function initializeInteractivePlatform(details,dataset) {
 
 async function loadExperimentResults() {
   document.getElementById("status").textContent = "載入實驗資料…";
-  const [comparisonResponse, importanceResponse, detailsResponse, datasetResponse] = await Promise.all([
+  const [comparisonResponse, importanceResponse, detailsResponse, curvesResponse, datasetResponse] = await Promise.all([
     fetch("data/model_comparison.csv"),
     fetch("data/feature_importance.csv"),
     fetch("data/model_details.json"),
+    fetch("data/feature_selection_curves.csv"),
     fetch(DATASET_URL)
   ]);
-  if (!comparisonResponse.ok || !importanceResponse.ok || !detailsResponse.ok || !datasetResponse.ok) throw new Error("實驗結果載入失敗");
+  if (!comparisonResponse.ok || !importanceResponse.ok || !detailsResponse.ok || !curvesResponse.ok || !datasetResponse.ok) throw new Error("實驗結果載入失敗");
   const details = await detailsResponse.json();
   const comparison = parseCsv(await comparisonResponse.text()).map(row => ({
     method: row.Method,
@@ -407,7 +445,9 @@ async function loadExperimentResults() {
     feature: row.Feature,
     importance: Number(row.Importance)
   }));
+  const curves = parseCsv(await curvesResponse.text()).map(row => ({method:row.Method,count:Number(row["Feature Count"]),features:row["Selected Features"],rmse:Number(row["CV RMSE"]),r2:Number(row["CV R2"]),best:row["Is Best"]==="True"}));
   renderExperimentResults(comparison, importance);
+  renderFeatureCurves(curves);
   initializeInteractivePlatform(details, parseCsv(await datasetResponse.text()));
   document.getElementById("status").textContent = "分析就緒";
 }
