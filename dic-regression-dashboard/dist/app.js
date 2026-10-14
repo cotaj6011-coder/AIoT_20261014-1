@@ -3,6 +3,8 @@ const TARGET = "Profit";
 const els = Object.fromEntries(["status","bestK","bestRmse","bestR2","rowCount","targetBadge","resultsBody"].map(id => [id, document.getElementById(id)]));
 let rmseChart;
 let r2Chart;
+let modelRmseChart;
+let modelR2Chart;
 
 function parseCsv(text) {
   const lines = text.trim().split(/\r?\n/).filter(Boolean);
@@ -113,6 +115,79 @@ function render(rows, analysis) {
   r2Chart = new Chart(document.getElementById("r2Chart"),{type:"line",data:{labels,datasets:[{data:analysis.results.map(r=>r.r2),borderColor:"#d79a3b",backgroundColor:"#d79a3b",pointRadius:5,tension:.15}]},options:options("R-squared")});
 }
 
+function renderExperimentResults(comparison, importance) {
+  const best = comparison.reduce((a, b) => b.cvRmse < a.cvRmse ? b : a);
+  const baseline = comparison.find(row => row.method === "Baseline");
+  const bestTest = comparison.reduce((a, b) => b.testRmse < a.testRmse ? b : a);
+  const improvement = ((baseline.cvRmse - best.cvRmse) / baseline.cvRmse) * 100;
+
+  document.getElementById("bestModelBadge").textContent = `Best CV RMSE · ${best.method}`;
+  document.getElementById("modelComparisonBody").innerHTML = comparison.map(row => `
+    <tr class="${row.method === best.method ? "best" : ""}">
+      <td><strong>${row.method}</strong></td>
+      <td class="features">${row.features}</td>
+      <td>${row.count}</td>
+      <td class="${row.method === best.method ? "good" : ""}">${row.cvRmse.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td>${row.testRmse.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td>${row.testR2.toFixed(4)}</td>
+    </tr>`).join("");
+
+  const labels = comparison.map(row => row.method);
+  const bestColors = comparison.map(row => row.method === best.method ? "#1f6f54" : "#9fb8ad");
+  const chartOptions = title => ({responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"top"}},scales:{x:{grid:{display:false}},y:{title:{display:true,text:title},grid:{color:"#ebe7de"}}}});
+  modelRmseChart?.destroy(); modelR2Chart?.destroy();
+  modelRmseChart = new Chart(document.getElementById("modelRmseChart"), {
+    type:"bar",
+    data:{labels,datasets:[
+      {label:"CV RMSE",data:comparison.map(row=>row.cvRmse),backgroundColor:bestColors},
+      {label:"Test RMSE",data:comparison.map(row=>row.testRmse),backgroundColor:"#d79a3b"}
+    ]},
+    options:chartOptions("RMSE")
+  });
+  modelR2Chart = new Chart(document.getElementById("modelR2Chart"), {
+    type:"bar",
+    data:{labels,datasets:[{label:"Test R²",data:comparison.map(row=>row.testR2),backgroundColor:bestColors}]},
+    options:{...chartOptions("R-squared"),scales:{x:{grid:{display:false}},y:{min:0,max:1,title:{display:true,text:"R-squared"},grid:{color:"#ebe7de"}}}}
+  });
+
+  document.getElementById("analysisConclusion").textContent =
+    `${best.method} 的 CV RMSE 最低（${best.cvRmse.toLocaleString(undefined,{maximumFractionDigits:2})}），選出 ${best.features}，相較 Baseline 改善 ${improvement.toFixed(2)}%。` +
+    ` ${bestTest.method} 的 Test RMSE 最低（${bestTest.testRmse.toLocaleString(undefined,{maximumFractionDigits:2})}），Test R² 為 ${bestTest.testR2.toFixed(4)}。` +
+    ` 五種選擇方法皆排除 State，顯示本次資料切分下地區資訊未帶來額外預測效益。`;
+
+  const grouped = importance.reduce((groups, row) => {
+    (groups[row.method] ||= []).push(row);
+    return groups;
+  }, {});
+  document.getElementById("importanceGrid").innerHTML = comparison.map(model => {
+    const rows = grouped[model.method] || [];
+    return `<article class="panel method-card"><h3>${model.method}</h3><div class="method-meta">${model.count} feature groups</div>${rows.map(row => `
+      <div class="importance-row"><span>${row.feature}</span><div class="importance-track"><div class="importance-fill" style="width:${(row.importance*100).toFixed(2)}%"></div></div><span class="importance-value">${(row.importance*100).toFixed(1)}%</span></div>`).join("")}</article>`;
+  }).join("");
+}
+
+async function loadExperimentResults() {
+  const [comparisonResponse, importanceResponse] = await Promise.all([
+    fetch("data/model_comparison.csv"),
+    fetch("data/feature_importance.csv")
+  ]);
+  if (!comparisonResponse.ok || !importanceResponse.ok) throw new Error("實驗結果載入失敗");
+  const comparison = parseCsv(await comparisonResponse.text()).map(row => ({
+    method: row.Method,
+    features: row["Selected Features"],
+    count: Number(row["Feature Count"]),
+    cvRmse: Number(row["CV RMSE"]),
+    testRmse: Number(row["Test RMSE"]),
+    testR2: Number(row["Test R2"])
+  }));
+  const importance = parseCsv(await importanceResponse.text()).map(row => ({
+    method: row.Method,
+    feature: row.Feature,
+    importance: Number(row.Importance)
+  }));
+  renderExperimentResults(comparison, importance);
+}
+
 async function run() {
   els.status.textContent = "分析中…";
   try {
@@ -131,3 +206,6 @@ async function run() {
 }
 
 run();
+loadExperimentResults().catch(error => {
+  document.getElementById("analysisConclusion").textContent = error.message;
+});
