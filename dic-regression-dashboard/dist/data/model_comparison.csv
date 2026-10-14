@@ -1,0 +1,7 @@
+Method,Selected Features,Feature Count,CV RMSE,Test RMSE,Test R2
+Best Subset,"R&D Spend, Administration, Marketing Spend",3,9104.681197069245,8995.905803361416,0.900065308303732
+RFECV,"R&D Spend, Administration, Marketing Spend",3,9104.681197069245,8995.905803361416,0.900065308303732
+Backward SBS,"R&D Spend, Administration, Marketing Spend",3,9104.681197069245,8995.905803361416,0.900065308303732
+Forward SFS,"R&D Spend, Administration, Marketing Spend",3,9104.681197069245,8995.905803361416,0.900065308303732
+LassoCV,"R&D Spend, Administration, Marketing Spend",3,9110.460194308365,8477.276037126681,0.9112559737938768
+Baseline,"R&D Spend, Administration, Marketing Spend, State",4,9550.67610568526,9055.95732345847,0.8987266414328636
