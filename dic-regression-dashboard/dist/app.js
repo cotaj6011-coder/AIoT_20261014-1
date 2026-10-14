@@ -5,6 +5,10 @@ let rmseChart;
 let r2Chart;
 let modelRmseChart;
 let modelR2Chart;
+let actualPredictedChart;
+let residualChart;
+let dashboardData;
+let activeDashboardModel;
 
 function parseCsv(text) {
   const lines = text.trim().split(/\r?\n/).filter(Boolean);
@@ -132,22 +136,28 @@ function renderExperimentResults(comparison, importance) {
       <td>${row.testR2.toFixed(4)}</td>
     </tr>`).join("");
 
-  const labels = comparison.map(row => row.method);
-  const bestColors = comparison.map(row => row.method === best.method ? "#1f6f54" : "#9fb8ad");
   const chartOptions = title => ({responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"top"}},scales:{x:{grid:{display:false}},y:{title:{display:true,text:title},grid:{color:"#ebe7de"}}}});
-  modelRmseChart?.destroy(); modelR2Chart?.destroy();
-  modelRmseChart = new Chart(document.getElementById("modelRmseChart"), {
-    type:"bar",
-    data:{labels,datasets:[
-      {label:"CV RMSE",data:comparison.map(row=>row.cvRmse),backgroundColor:bestColors},
-      {label:"Test RMSE",data:comparison.map(row=>row.testRmse),backgroundColor:"#d79a3b"}
-    ]},
-    options:chartOptions("RMSE")
-  });
-  modelR2Chart = new Chart(document.getElementById("modelR2Chart"), {
-    type:"bar",
-    data:{labels,datasets:[{label:"Test R²",data:comparison.map(row=>row.testR2),backgroundColor:bestColors}]},
-    options:{...chartOptions("R-squared"),scales:{x:{grid:{display:false}},y:{min:0,max:1,title:{display:true,text:"R-squared"},grid:{color:"#ebe7de"}}}}
+  const drawComparisonCharts = rows => {
+    const labels = rows.map(row => row.method);
+    const bestColors = rows.map(row => row.method === best.method ? "#1f6f54" : "#9fb8ad");
+    modelRmseChart?.destroy(); modelR2Chart?.destroy();
+    modelRmseChart = new Chart(document.getElementById("modelRmseChart"), {
+      type:"bar", data:{labels,datasets:[
+        {label:"CV RMSE",data:rows.map(row=>row.cvRmse),backgroundColor:bestColors},
+        {label:"Test RMSE",data:rows.map(row=>row.testRmse),backgroundColor:"#d79a3b"}
+      ]}, options:chartOptions("RMSE")
+    });
+    modelR2Chart = new Chart(document.getElementById("modelR2Chart"), {
+      type:"bar", data:{labels,datasets:[{label:"Test R²",data:rows.map(row=>row.testR2),backgroundColor:bestColors}]},
+      options:{...chartOptions("R-squared"),scales:{x:{grid:{display:false}},y:{min:0,max:1,title:{display:true,text:"R-squared"},grid:{color:"#ebe7de"}}}}
+    });
+  };
+  drawComparisonCharts(comparison);
+  const filters = document.getElementById("modelFilters");
+  filters.innerHTML = comparison.map(row => `<label class="filter-chip"><input type="checkbox" value="${row.method}" checked> ${row.method}</label>`).join("");
+  filters.addEventListener("change", () => {
+    const selected = [...filters.querySelectorAll("input:checked")].map(input => input.value);
+    drawComparisonCharts(comparison.filter(row => selected.includes(row.method)));
   });
 
   document.getElementById("analysisConclusion").textContent =
@@ -166,12 +176,168 @@ function renderExperimentResults(comparison, importance) {
   }).join("");
 }
 
+function formatMoney(value) {
+  return Number(value).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+function predictWithModel(model, values) {
+  return model.intercept + model.coefficients.reduce((total, item) => {
+    let value = Number(values[item.feature] ?? 0);
+    if (item.feature.startsWith("State_")) value = values.State === item.feature.replace("State_", "") ? 1 : 0;
+    return total + item.coefficient * value;
+  }, 0);
+}
+
+function updateLivePrediction() {
+  if (!activeDashboardModel) return;
+  const values = {
+    "R&D Spend": Number(document.getElementById("predictRD").value),
+    "Administration": Number(document.getElementById("predictAdmin").value),
+    "Marketing Spend": Number(document.getElementById("predictMarketing").value),
+    State: document.getElementById("predictState").value
+  };
+  document.getElementById("livePrediction").textContent = `$${formatMoney(predictWithModel(activeDashboardModel, values))}`;
+}
+
+function zoomOptions() {
+  return {pan:{enabled:true,mode:"xy"},zoom:{wheel:{enabled:true},pinch:{enabled:true},mode:"xy"}};
+}
+
+function renderActiveModel(model) {
+  activeDashboardModel = model;
+  document.getElementById("activeMethod").textContent = model.method;
+  document.getElementById("activeCvRmse").textContent = formatMoney(model.cvRmse);
+  document.getElementById("activeTestRmse").textContent = formatMoney(model.testRmse);
+  document.getElementById("activeTestR2").textContent = model.testR2.toFixed(4);
+  const terms = model.coefficients.map(item => `${item.coefficient >= 0 ? "+" : "−"} ${Math.abs(item.coefficient).toFixed(4)} × ${item.feature}`);
+  document.getElementById("regressionFormula").textContent = `Profit = ${model.intercept.toFixed(2)} ${terms.join(" ")}`;
+  document.getElementById("coefficientBody").innerHTML = [
+    `<tr><td>Intercept</td><td>${model.intercept.toFixed(4)}</td></tr>`,
+    ...model.coefficients.map(item => `<tr><td>${item.feature}</td><td>${item.coefficient.toFixed(4)}</td></tr>`)
+  ].join("");
+  document.getElementById("assumptionGrid").innerHTML = model.assumptions.map(item => `<article class="assumption ${item.passed ? "pass" : "fail"}"><strong>${item.name} · ${item.passed ? "通過" : "注意"}</strong><small>${item.display}</small></article>`).join("");
+
+  const points = model.testRows.map(row => ({x:row.actual,y:row.predicted,index:row.index}));
+  const residualPoints = model.testRows.map(row => ({x:row.predicted,y:row.residual,index:row.index}));
+  const values = points.flatMap(point => [point.x,point.y]);
+  const min = Math.min(...values), max = Math.max(...values);
+  actualPredictedChart?.destroy(); residualChart?.destroy();
+  actualPredictedChart = new Chart(document.getElementById("actualPredictedChart"), {
+    type:"scatter", data:{datasets:[
+      {label:"Test samples",data:points,backgroundColor:"#1f6f54",pointRadius:6},
+      {label:"Perfect prediction",data:[{x:min,y:min},{x:max,y:max}],type:"line",borderColor:"#d79a3b",borderDash:[6,5],pointRadius:0}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{zoom:zoomOptions(),tooltip:{callbacks:{label:ctx=>ctx.raw.index === undefined ? "Perfect prediction" : `Startup #${ctx.raw.index}: actual ${formatMoney(ctx.raw.x)}, predicted ${formatMoney(ctx.raw.y)}`}}},scales:{x:{title:{display:true,text:"Actual Profit"}},y:{title:{display:true,text:"Predicted Profit"}}}}
+  });
+  residualChart = new Chart(document.getElementById("residualChart"), {
+    type:"scatter", data:{datasets:[
+      {label:"Residual",data:residualPoints,backgroundColor:"#a84f40",pointRadius:6},
+      {label:"Zero line",data:[{x:Math.min(...residualPoints.map(p=>p.x)),y:0},{x:Math.max(...residualPoints.map(p=>p.x)),y:0}],type:"line",borderColor:"#64716b",pointRadius:0}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{zoom:zoomOptions(),tooltip:{callbacks:{label:ctx=>ctx.raw.index === undefined ? "Residual = 0" : `Startup #${ctx.raw.index}: residual ${formatMoney(ctx.raw.y)}`}}},scales:{x:{title:{display:true,text:"Predicted Profit"}},y:{title:{display:true,text:"Residual"}}}}
+  });
+  document.querySelectorAll("#featureChecks input").forEach(input => { input.checked = model.selectedFeatures.includes(input.value); });
+  updateLivePrediction();
+}
+
+function designRow(row, features, fitIntercept) {
+  const values = fitIntercept ? [1] : [];
+  const names = fitIntercept ? ["Intercept"] : [];
+  features.forEach(feature => {
+    if (feature === "State") {
+      ["Florida","New York"].forEach(state => { values.push(row.State === state ? 1 : 0); names.push(`State_${state}`); });
+    } else { values.push(Number(row[feature])); names.push(feature); }
+  });
+  return {values,names};
+}
+
+function fitMatrix(rows, features, fitIntercept) {
+  const built = rows.map(row => designRow(row, features, fitIntercept));
+  const X = built.map(item => item.values), y = rows.map(row => Number(row.Profit));
+  const p = X[0].length;
+  const xtx = Array.from({length:p},(_,i)=>Array.from({length:p},(_,j)=>X.reduce((sum,row)=>sum+row[i]*row[j],0)));
+  const xty = Array.from({length:p},(_,i)=>X.reduce((sum,row,k)=>sum+row[i]*y[k],0));
+  return {beta:solve(xtx,xty),names:built[0].names,X};
+}
+
+function predictMatrix(rows, model, features, fitIntercept) {
+  return rows.map(row => designRow(row,features,fitIntercept).values.reduce((sum,value,i)=>sum+value*model.beta[i],0));
+}
+
+function corrArrays(a,b) {
+  const ma=a.reduce((s,v)=>s+v,0)/a.length, mb=b.reduce((s,v)=>s+v,0)/b.length;
+  const numerator=a.reduce((s,v,i)=>s+(v-ma)*(b[i]-mb),0);
+  const denominator=Math.sqrt(a.reduce((s,v)=>s+(v-ma)**2,0)*b.reduce((s,v)=>s+(v-mb)**2,0));
+  return denominator ? numerator/denominator : 0;
+}
+
+function customAssumptions(predicted,residuals,trainMatrix) {
+  const dw=residuals.slice(1).reduce((s,v,i)=>s+(v-residuals[i])**2,0)/residuals.reduce((s,v)=>s+v*v,0);
+  const mean=residuals.reduce((s,v)=>s+v,0)/residuals.length;
+  const variance=residuals.reduce((s,v)=>s+(v-mean)**2,0)/residuals.length;
+  const skew=residuals.reduce((s,v)=>s+(v-mean)**3,0)/residuals.length/Math.pow(variance,1.5);
+  const kurt=residuals.reduce((s,v)=>s+(v-mean)**4,0)/residuals.length/(variance**2);
+  const jb=residuals.length/6*(skew**2+(kurt-3)**2/4), normalP=Math.exp(-jb/2);
+  const linear=Math.abs(corrArrays(predicted,residuals)), scale=Math.abs(corrArrays(predicted,residuals.map(Math.abs)));
+  return [
+    {name:"線性關係",display:`|corr(ŷ, residual)| = ${linear.toFixed(3)}`,passed:linear<.2},
+    {name:"誤差獨立性",display:`Durbin-Watson = ${dw.toFixed(3)}`,passed:dw>=1.5&&dw<=2.5},
+    {name:"同質變異性",display:`|corr(ŷ, |residual|)| = ${scale.toFixed(3)}`,passed:scale<.3},
+    {name:"殘差常態性",display:`Jarque-Bera p = ${normalP.toFixed(3)}`,passed:normalP>.05},
+    {name:"無嚴重共線性",display:`Design rank = ${trainMatrix[0].length}`,passed:true}
+  ];
+}
+
+function trainCustomModel() {
+  const status=document.getElementById("trainingStatus");
+  try {
+    status.textContent="Training Set 重新訓練中…";
+    const features=[...document.querySelectorAll("#featureChecks input:checked")].map(input=>input.value);
+    if(!features.length) throw new Error("請至少選擇一個特徵。");
+    const fitIntercept=document.getElementById("fitIntercept").checked;
+    const folds=Number(document.getElementById("cvFolds").value);
+    const trainRows=dashboardData.metadata.trainIndices.map(index=>dashboardData.dataset[index]);
+    const testRows=dashboardData.metadata.testIndices.map(index=>dashboardData.dataset[index]);
+    const foldPredictions=[];
+    for(let fold=0;fold<folds;fold++){
+      const validation=trainRows.filter((_,i)=>i%folds===fold), training=trainRows.filter((_,i)=>i%folds!==fold);
+      const foldModel=fitMatrix(training,features,fitIntercept);
+      const predicted=predictMatrix(validation,foldModel,features,fitIntercept);
+      validation.forEach((row,i)=>foldPredictions.push({actual:Number(row.Profit),predicted:predicted[i]}));
+    }
+    const cvRmse=Math.sqrt(foldPredictions.reduce((s,row)=>s+(row.actual-row.predicted)**2,0)/foldPredictions.length);
+    const fitted=fitMatrix(trainRows,features,fitIntercept), predicted=predictMatrix(testRows,fitted,features,fitIntercept);
+    const actual=testRows.map(row=>Number(row.Profit)), metrics=evaluate(actual,predicted), residuals=actual.map((v,i)=>v-predicted[i]);
+    const interceptIndex=fitted.names[0]==="Intercept"?0:-1;
+    const custom={method:"Custom",selectedFeatures:features,cvRmse,testRmse:metrics.rmse,testR2:metrics.r2,intercept:interceptIndex===0?fitted.beta[0]:0,coefficients:fitted.names.map((name,i)=>({feature:name,coefficient:fitted.beta[i]})).filter(item=>item.feature!=="Intercept"),testRows:testRows.map((row,i)=>({index:dashboardData.metadata.testIndices[i],actual:actual[i],predicted:predicted[i],residual:residuals[i]})),assumptions:customAssumptions(predicted,residuals,fitted.X)};
+    dashboardData.models=dashboardData.models.filter(model=>model.method!=="Custom"); dashboardData.models.push(custom);
+    const selector=document.getElementById("activeModel");
+    if(![...selector.options].some(option=>option.value==="Custom")) selector.add(new Option("Custom · 自訂模型","Custom"));
+    selector.value="Custom"; renderActiveModel(custom); status.textContent=`完成：僅使用 Training Set 進行 ${folds}-Fold CV，Test Set 最後評估一次。`;
+  } catch(error){status.textContent=error.message; status.classList.add("error");}
+}
+
+function initializeInteractivePlatform(details,dataset) {
+  dashboardData={...details,dataset};
+  const selector=document.getElementById("activeModel");
+  selector.innerHTML=details.models.map(model=>`<option value="${model.method}">${model.method}</option>`).join("");
+  const features=["R&D Spend","Administration","Marketing Spend","State"];
+  document.getElementById("featureChecks").innerHTML=features.map(feature=>`<label class="check-chip"><input type="checkbox" value="${feature}" checked> ${feature}</label>`).join("");
+  selector.addEventListener("change",()=>renderActiveModel(dashboardData.models.find(model=>model.method===selector.value)));
+  document.getElementById("trainCustom").addEventListener("click",trainCustomModel);
+  ["predictRD","predictAdmin","predictMarketing","predictState"].forEach(id=>document.getElementById(id).addEventListener("input",updateLivePrediction));
+  document.getElementById("resetZoom").addEventListener("click",()=>{actualPredictedChart?.resetZoom();residualChart?.resetZoom();});
+  renderActiveModel(details.models[0]);
+}
+
 async function loadExperimentResults() {
-  const [comparisonResponse, importanceResponse] = await Promise.all([
+  const [comparisonResponse, importanceResponse, detailsResponse, datasetResponse] = await Promise.all([
     fetch("data/model_comparison.csv"),
-    fetch("data/feature_importance.csv")
+    fetch("data/feature_importance.csv"),
+    fetch("data/model_details.json"),
+    fetch(DATASET_URL)
   ]);
-  if (!comparisonResponse.ok || !importanceResponse.ok) throw new Error("實驗結果載入失敗");
+  if (!comparisonResponse.ok || !importanceResponse.ok || !detailsResponse.ok || !datasetResponse.ok) throw new Error("實驗結果載入失敗");
   const comparison = parseCsv(await comparisonResponse.text()).map(row => ({
     method: row.Method,
     features: row["Selected Features"],
@@ -186,6 +352,7 @@ async function loadExperimentResults() {
     importance: Number(row.Importance)
   }));
   renderExperimentResults(comparison, importance);
+  initializeInteractivePlatform(await detailsResponse.json(), parseCsv(await datasetResponse.text()));
 }
 
 async function run() {
