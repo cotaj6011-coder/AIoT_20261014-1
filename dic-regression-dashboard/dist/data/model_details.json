@@ -1,0 +1,793 @@
+{
+  "metadata": {
+    "dataset": "50_Startups.csv",
+    "randomState": 42,
+    "testSize": 0.2,
+    "cvFolds": 5,
+    "trainIndices": [
+      12,
+      4,
+      37,
+      8,
+      3,
+      6,
+      41,
+      46,
+      47,
+      15,
+      9,
+      16,
+      24,
+      34,
+      31,
+      0,
+      44,
+      27,
+      33,
+      5,
+      29,
+      11,
+      36,
+      1,
+      21,
+      2,
+      43,
+      35,
+      23,
+      40,
+      10,
+      22,
+      18,
+      49,
+      20,
+      7,
+      42,
+      14,
+      28,
+      38
+    ],
+    "testIndices": [
+      13,
+      39,
+      30,
+      45,
+      17,
+      48,
+      26,
+      25,
+      32,
+      19
+    ]
+  },
+  "models": [
+    {
+      "method": "Baseline",
+      "selectedFeatures": [
+        "R&D Spend",
+        "Administration",
+        "Marketing Spend",
+        "State"
+      ],
+      "cvRmse": 9550.67610568526,
+      "testRmse": 9055.95732345847,
+      "testR2": 0.8987266414328636,
+      "intercept": 54028.039593645815,
+      "coefficients": [
+        {
+          "feature": "R&D Spend",
+          "coefficient": 0.8056300637153667
+        },
+        {
+          "feature": "Administration",
+          "coefficient": -0.0687878822771322
+        },
+        {
+          "feature": "Marketing Spend",
+          "coefficient": 0.02985544292263423
+        },
+        {
+          "feature": "State_Florida",
+          "coefficient": 938.7930061484284
+        },
+        {
+          "feature": "State_New York",
+          "coefficient": 6.987759966980563
+        }
+      ],
+      "testRows": [
+        {
+          "index": 13,
+          "actual": 134307.35,
+          "predicted": 126362.87908254925,
+          "residual": 7944.470917450759
+        },
+        {
+          "index": 39,
+          "actual": 81005.76,
+          "predicted": 84608.45383633598,
+          "residual": -3602.6938363359804
+        },
+        {
+          "index": 30,
+          "actual": 99937.59,
+          "predicted": 99677.49425146727,
+          "residual": 260.0957485327235
+        },
+        {
+          "index": 45,
+          "actual": 64926.08,
+          "predicted": 46357.46068581843,
+          "residual": 18568.619314181575
+        },
+        {
+          "index": 17,
+          "actual": 125370.37,
+          "predicted": 128750.482885045,
+          "residual": -3380.112885045004
+        },
+        {
+          "index": 48,
+          "actual": 35673.41,
+          "predicted": 50912.41741880172,
+          "residual": -15239.007418801717
+        },
+        {
+          "index": 26,
+          "actual": 105733.54,
+          "predicted": 109741.35032702185,
+          "residual": -4007.810327021856
+        },
+        {
+          "index": 25,
+          "actual": 107404.34,
+          "predicted": 100643.24281646681,
+          "residual": 6761.0971835331875
+        },
+        {
+          "index": 32,
+          "actual": 97427.84,
+          "predicted": 97599.27574593798,
+          "residual": -171.43574593798257
+        },
+        {
+          "index": 19,
+          "actual": 122776.86,
+          "predicted": 113097.42524431695,
+          "residual": 9679.434755683047
+        }
+      ],
+      "assumptions": [
+        {
+          "name": "線性關係",
+          "value": 0.03496283549873042,
+          "display": "|corr(ŷ, residual)| = 0.035",
+          "passed": true
+        },
+        {
+          "name": "誤差獨立性",
+          "value": 1.820561671986245,
+          "display": "Durbin-Watson = 1.821",
+          "passed": true
+        },
+        {
+          "name": "同質變異性",
+          "value": 0.6649716074032858,
+          "display": "|corr(ŷ, |residual|)| = 0.665",
+          "passed": false
+        },
+        {
+          "name": "殘差常態性",
+          "value": 0.983995791407426,
+          "display": "Jarque-Bera p = 0.984",
+          "passed": true
+        },
+        {
+          "name": "無嚴重共線性",
+          "value": 2.698944569752321,
+          "display": "Maximum VIF = 2.699",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "method": "Best Subset",
+      "selectedFeatures": [
+        "R&D Spend",
+        "Administration",
+        "Marketing Spend"
+      ],
+      "cvRmse": 9104.681197069245,
+      "testRmse": 8995.905803361416,
+      "testR2": 0.900065308303732,
+      "intercept": 54071.875745990845,
+      "coefficients": [
+        {
+          "feature": "R&D Spend",
+          "coefficient": 0.803779275629752
+        },
+        {
+          "feature": "Administration",
+          "coefficient": -0.06792917400149975
+        },
+        {
+          "feature": "Marketing Spend",
+          "coefficient": 0.031241545897732967
+        }
+      ],
+      "testRows": [
+        {
+          "index": 13,
+          "actual": 134307.35,
+          "predicted": 126703.0271646076,
+          "residual": 7604.322835392406
+        },
+        {
+          "index": 39,
+          "actual": 81005.76,
+          "predicted": 84894.75081555643,
+          "residual": -3888.9908155564335
+        },
+        {
+          "index": 30,
+          "actual": 99937.59,
+          "predicted": 98893.41815973516,
+          "residual": 1044.1718402648403
+        },
+        {
+          "index": 45,
+          "actual": 64926.08,
+          "predicted": 46501.708150359904,
+          "residual": 18424.371849640098
+        },
+        {
+          "index": 17,
+          "actual": 125370.37,
+          "predicted": 129128.3973438091,
+          "residual": -3758.02734380911
+        },
+        {
+          "index": 48,
+          "actual": 35673.41,
+          "predicted": 50992.69486261025,
+          "residual": -15319.28486261025
+        },
+        {
+          "index": 26,
+          "actual": 105733.54,
+          "predicted": 109016.55365780123,
+          "residual": -3283.0136578012316
+        },
+        {
+          "index": 25,
+          "actual": 107404.34,
+          "predicted": 100878.46414540119,
+          "residual": 6525.875854598809
+        },
+        {
+          "index": 32,
+          "actual": 97427.84,
+          "predicted": 97700.59638628676,
+          "residual": -272.75638628676825
+        },
+        {
+          "index": 19,
+          "actual": 122776.86,
+          "predicted": 113106.15292225595,
+          "residual": 9670.707077744053
+        }
+      ],
+      "assumptions": [
+        {
+          "name": "線性關係",
+          "value": 0.03829535837095192,
+          "display": "|corr(ŷ, residual)| = 0.038",
+          "passed": true
+        },
+        {
+          "name": "誤差獨立性",
+          "value": 1.8169678245547431,
+          "display": "Durbin-Watson = 1.817",
+          "passed": true
+        },
+        {
+          "name": "同質變異性",
+          "value": 0.6779499126631253,
+          "display": "|corr(ŷ, |residual|)| = 0.678",
+          "passed": false
+        },
+        {
+          "name": "殘差常態性",
+          "value": 0.9906263796538982,
+          "display": "Jarque-Bera p = 0.991",
+          "passed": true
+        },
+        {
+          "name": "無嚴重共線性",
+          "value": 2.574082735664086,
+          "display": "Maximum VIF = 2.574",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "method": "RFECV",
+      "selectedFeatures": [
+        "R&D Spend",
+        "Administration",
+        "Marketing Spend"
+      ],
+      "cvRmse": 9104.681197069245,
+      "testRmse": 8995.905803361416,
+      "testR2": 0.900065308303732,
+      "intercept": 54071.875745990845,
+      "coefficients": [
+        {
+          "feature": "R&D Spend",
+          "coefficient": 0.803779275629752
+        },
+        {
+          "feature": "Administration",
+          "coefficient": -0.06792917400149975
+        },
+        {
+          "feature": "Marketing Spend",
+          "coefficient": 0.031241545897732967
+        }
+      ],
+      "testRows": [
+        {
+          "index": 13,
+          "actual": 134307.35,
+          "predicted": 126703.0271646076,
+          "residual": 7604.322835392406
+        },
+        {
+          "index": 39,
+          "actual": 81005.76,
+          "predicted": 84894.75081555643,
+          "residual": -3888.9908155564335
+        },
+        {
+          "index": 30,
+          "actual": 99937.59,
+          "predicted": 98893.41815973516,
+          "residual": 1044.1718402648403
+        },
+        {
+          "index": 45,
+          "actual": 64926.08,
+          "predicted": 46501.708150359904,
+          "residual": 18424.371849640098
+        },
+        {
+          "index": 17,
+          "actual": 125370.37,
+          "predicted": 129128.3973438091,
+          "residual": -3758.02734380911
+        },
+        {
+          "index": 48,
+          "actual": 35673.41,
+          "predicted": 50992.69486261025,
+          "residual": -15319.28486261025
+        },
+        {
+          "index": 26,
+          "actual": 105733.54,
+          "predicted": 109016.55365780123,
+          "residual": -3283.0136578012316
+        },
+        {
+          "index": 25,
+          "actual": 107404.34,
+          "predicted": 100878.46414540119,
+          "residual": 6525.875854598809
+        },
+        {
+          "index": 32,
+          "actual": 97427.84,
+          "predicted": 97700.59638628676,
+          "residual": -272.75638628676825
+        },
+        {
+          "index": 19,
+          "actual": 122776.86,
+          "predicted": 113106.15292225595,
+          "residual": 9670.707077744053
+        }
+      ],
+      "assumptions": [
+        {
+          "name": "線性關係",
+          "value": 0.03829535837095192,
+          "display": "|corr(ŷ, residual)| = 0.038",
+          "passed": true
+        },
+        {
+          "name": "誤差獨立性",
+          "value": 1.8169678245547431,
+          "display": "Durbin-Watson = 1.817",
+          "passed": true
+        },
+        {
+          "name": "同質變異性",
+          "value": 0.6779499126631253,
+          "display": "|corr(ŷ, |residual|)| = 0.678",
+          "passed": false
+        },
+        {
+          "name": "殘差常態性",
+          "value": 0.9906263796538982,
+          "display": "Jarque-Bera p = 0.991",
+          "passed": true
+        },
+        {
+          "name": "無嚴重共線性",
+          "value": 2.574082735664086,
+          "display": "Maximum VIF = 2.574",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "method": "LassoCV",
+      "selectedFeatures": [
+        "R&D Spend",
+        "Administration",
+        "Marketing Spend"
+      ],
+      "cvRmse": 9110.460194308365,
+      "testRmse": 8477.276037126681,
+      "testR2": 0.9112559737938768,
+      "intercept": 51859.203581820126,
+      "coefficients": [
+        {
+          "feature": "R&D Spend",
+          "coefficient": 0.78726252683294
+        },
+        {
+          "feature": "Administration",
+          "coefficient": -0.039145294157707414
+        },
+        {
+          "feature": "Marketing Spend",
+          "coefficient": 0.03127912625911162
+        }
+      ],
+      "testRows": [
+        {
+          "index": 13,
+          "actual": 134307.35,
+          "predicted": 126880.50885727185,
+          "residual": 7426.8411427281535
+        },
+        {
+          "index": 39,
+          "actual": 81005.76,
+          "predicted": 84440.34047241812,
+          "residual": -3434.5804724181216
+        },
+        {
+          "index": 30,
+          "actual": 99937.59,
+          "predicted": 98988.82819604989,
+          "residual": 948.7618039501103
+        },
+        {
+          "index": 45,
+          "actual": 64926.08,
+          "predicted": 47846.19317451914,
+          "residual": 17079.886825480862
+        },
+        {
+          "index": 17,
+          "actual": 125370.37,
+          "predicted": 129538.81152153303,
+          "residual": -4168.441521533037
+        },
+        {
+          "index": 48,
+          "actual": 35673.41,
+          "predicted": 50260.43840709355,
+          "residual": -14587.028407093545
+        },
+        {
+          "index": 26,
+          "actual": 105733.54,
+          "predicted": 109713.52385025349,
+          "residual": -3979.9838502534985
+        },
+        {
+          "index": 25,
+          "actual": 107404.34,
+          "predicted": 101619.80728451964,
+          "residual": 5784.532715480353
+        },
+        {
+          "index": 32,
+          "actual": 97427.84,
+          "predicted": 98161.78963805476,
+          "residual": -733.9496380547644
+        },
+        {
+          "index": 19,
+          "actual": 122776.86,
+          "predicted": 113884.83997865609,
+          "residual": 8892.02002134391
+        }
+      ],
+      "assumptions": [
+        {
+          "name": "線性關係",
+          "value": 0.04923126538077727,
+          "display": "|corr(ŷ, residual)| = 0.049",
+          "passed": true
+        },
+        {
+          "name": "誤差獨立性",
+          "value": 1.8095806990713785,
+          "display": "Durbin-Watson = 1.810",
+          "passed": true
+        },
+        {
+          "name": "同質變異性",
+          "value": 0.6608685610225238,
+          "display": "|corr(ŷ, |residual|)| = 0.661",
+          "passed": false
+        },
+        {
+          "name": "殘差常態性",
+          "value": 0.9811334195291139,
+          "display": "Jarque-Bera p = 0.981",
+          "passed": true
+        },
+        {
+          "name": "無嚴重共線性",
+          "value": 2.698944569752321,
+          "display": "Maximum VIF = 2.699",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "method": "Forward SFS",
+      "selectedFeatures": [
+        "R&D Spend",
+        "Administration",
+        "Marketing Spend"
+      ],
+      "cvRmse": 9104.681197069245,
+      "testRmse": 8995.905803361416,
+      "testR2": 0.900065308303732,
+      "intercept": 54071.875745990845,
+      "coefficients": [
+        {
+          "feature": "R&D Spend",
+          "coefficient": 0.803779275629752
+        },
+        {
+          "feature": "Administration",
+          "coefficient": -0.06792917400149975
+        },
+        {
+          "feature": "Marketing Spend",
+          "coefficient": 0.031241545897732967
+        }
+      ],
+      "testRows": [
+        {
+          "index": 13,
+          "actual": 134307.35,
+          "predicted": 126703.0271646076,
+          "residual": 7604.322835392406
+        },
+        {
+          "index": 39,
+          "actual": 81005.76,
+          "predicted": 84894.75081555643,
+          "residual": -3888.9908155564335
+        },
+        {
+          "index": 30,
+          "actual": 99937.59,
+          "predicted": 98893.41815973516,
+          "residual": 1044.1718402648403
+        },
+        {
+          "index": 45,
+          "actual": 64926.08,
+          "predicted": 46501.708150359904,
+          "residual": 18424.371849640098
+        },
+        {
+          "index": 17,
+          "actual": 125370.37,
+          "predicted": 129128.3973438091,
+          "residual": -3758.02734380911
+        },
+        {
+          "index": 48,
+          "actual": 35673.41,
+          "predicted": 50992.69486261025,
+          "residual": -15319.28486261025
+        },
+        {
+          "index": 26,
+          "actual": 105733.54,
+          "predicted": 109016.55365780123,
+          "residual": -3283.0136578012316
+        },
+        {
+          "index": 25,
+          "actual": 107404.34,
+          "predicted": 100878.46414540119,
+          "residual": 6525.875854598809
+        },
+        {
+          "index": 32,
+          "actual": 97427.84,
+          "predicted": 97700.59638628676,
+          "residual": -272.75638628676825
+        },
+        {
+          "index": 19,
+          "actual": 122776.86,
+          "predicted": 113106.15292225595,
+          "residual": 9670.707077744053
+        }
+      ],
+      "assumptions": [
+        {
+          "name": "線性關係",
+          "value": 0.03829535837095192,
+          "display": "|corr(ŷ, residual)| = 0.038",
+          "passed": true
+        },
+        {
+          "name": "誤差獨立性",
+          "value": 1.8169678245547431,
+          "display": "Durbin-Watson = 1.817",
+          "passed": true
+        },
+        {
+          "name": "同質變異性",
+          "value": 0.6779499126631253,
+          "display": "|corr(ŷ, |residual|)| = 0.678",
+          "passed": false
+        },
+        {
+          "name": "殘差常態性",
+          "value": 0.9906263796538982,
+          "display": "Jarque-Bera p = 0.991",
+          "passed": true
+        },
+        {
+          "name": "無嚴重共線性",
+          "value": 2.574082735664086,
+          "display": "Maximum VIF = 2.574",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "method": "Backward SBS",
+      "selectedFeatures": [
+        "R&D Spend",
+        "Administration",
+        "Marketing Spend"
+      ],
+      "cvRmse": 9104.681197069245,
+      "testRmse": 8995.905803361416,
+      "testR2": 0.900065308303732,
+      "intercept": 54071.875745990845,
+      "coefficients": [
+        {
+          "feature": "R&D Spend",
+          "coefficient": 0.803779275629752
+        },
+        {
+          "feature": "Administration",
+          "coefficient": -0.06792917400149975
+        },
+        {
+          "feature": "Marketing Spend",
+          "coefficient": 0.031241545897732967
+        }
+      ],
+      "testRows": [
+        {
+          "index": 13,
+          "actual": 134307.35,
+          "predicted": 126703.0271646076,
+          "residual": 7604.322835392406
+        },
+        {
+          "index": 39,
+          "actual": 81005.76,
+          "predicted": 84894.75081555643,
+          "residual": -3888.9908155564335
+        },
+        {
+          "index": 30,
+          "actual": 99937.59,
+          "predicted": 98893.41815973516,
+          "residual": 1044.1718402648403
+        },
+        {
+          "index": 45,
+          "actual": 64926.08,
+          "predicted": 46501.708150359904,
+          "residual": 18424.371849640098
+        },
+        {
+          "index": 17,
+          "actual": 125370.37,
+          "predicted": 129128.3973438091,
+          "residual": -3758.02734380911
+        },
+        {
+          "index": 48,
+          "actual": 35673.41,
+          "predicted": 50992.69486261025,
+          "residual": -15319.28486261025
+        },
+        {
+          "index": 26,
+          "actual": 105733.54,
+          "predicted": 109016.55365780123,
+          "residual": -3283.0136578012316
+        },
+        {
+          "index": 25,
+          "actual": 107404.34,
+          "predicted": 100878.46414540119,
+          "residual": 6525.875854598809
+        },
+        {
+          "index": 32,
+          "actual": 97427.84,
+          "predicted": 97700.59638628676,
+          "residual": -272.75638628676825
+        },
+        {
+          "index": 19,
+          "actual": 122776.86,
+          "predicted": 113106.15292225595,
+          "residual": 9670.707077744053
+        }
+      ],
+      "assumptions": [
+        {
+          "name": "線性關係",
+          "value": 0.03829535837095192,
+          "display": "|corr(ŷ, residual)| = 0.038",
+          "passed": true
+        },
+        {
+          "name": "誤差獨立性",
+          "value": 1.8169678245547431,
+          "display": "Durbin-Watson = 1.817",
+          "passed": true
+        },
+        {
+          "name": "同質變異性",
+          "value": 0.6779499126631253,
+          "display": "|corr(ŷ, |residual|)| = 0.678",
+          "passed": false
+        },
+        {
+          "name": "殘差常態性",
+          "value": 0.9906263796538982,
+          "display": "Jarque-Bera p = 0.991",
+          "passed": true
+        },
+        {
+          "name": "無嚴重共線性",
+          "value": 2.574082735664086,
+          "display": "Maximum VIF = 2.574",
+          "passed": true
+        }
+      ]
+    }
+  ]
+}
