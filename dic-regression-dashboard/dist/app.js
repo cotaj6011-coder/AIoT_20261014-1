@@ -241,7 +241,8 @@ function renderActiveModel(model) {
     ]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{zoom:zoomOptions(),tooltip:{callbacks:{label:ctx=>ctx.raw.index === undefined ? "殘差 = 0" : `Startup #${ctx.raw.index}：殘差 ${formatMoney(ctx.raw.y)}`}}},scales:{x:{title:{display:true,text:"預測 Profit"}},y:{title:{display:true,text:"殘差"}}}}
   });
-  document.querySelectorAll("#featureChecks input").forEach(input => { input.checked = model.selectedFeatures.includes(input.value); });
+  document.querySelectorAll("#featureChecks .chip").forEach(chip => chip.setAttribute("aria-pressed", model.selectedFeatures.includes(chip.dataset.value)));
+  activateSegment(document.getElementById("modelSegments"),model.method);
   updateLivePrediction();
 }
 
@@ -293,11 +294,14 @@ function customAssumptions(predicted,residuals,trainMatrix) {
   ];
 }
 
-function trainCustomModel() {
+async function trainCustomModel() {
   const status=document.getElementById("trainingStatus");
+  const button=document.getElementById("trainCustom");
   try {
+    button.disabled=true; button.textContent="訓練中…"; button.classList.remove("success"); status.classList.remove("success","error");
     status.textContent="Training Set 重新訓練中…";
-    const features=[...document.querySelectorAll("#featureChecks input:checked")].map(input=>input.value);
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    const features=[...document.querySelectorAll('#featureChecks .chip[aria-pressed="true"]')].map(chip=>chip.dataset.value);
     if(!features.length) throw new Error("請至少選擇一個特徵。");
     const fitIntercept=document.getElementById("fitIntercept").checked;
     const folds=Number(document.getElementById("cvFolds").value);
@@ -318,19 +322,63 @@ function trainCustomModel() {
     dashboardData.models=dashboardData.models.filter(model=>model.method!=="Custom"); dashboardData.models.push(custom);
     const selector=document.getElementById("activeModel");
     if(![...selector.options].some(option=>option.value==="Custom")) selector.add(new Option("Custom · 自訂模型","Custom"));
-    selector.value="Custom"; renderActiveModel(custom); status.textContent=`完成：僅使用 Training Set 進行 ${folds}-Fold CV，Test Set 最後評估一次。`;
-  } catch(error){status.textContent=error.message; status.classList.add("error");}
+    selector.value="Custom"; addModelSegment(custom.method); renderActiveModel(custom); status.textContent=`完成：僅使用 Training Set 進行 ${folds}-Fold CV，Test Set 最後評估一次。`; status.classList.add("success"); button.classList.add("success"); button.textContent="已套用";
+  } catch(error){status.textContent=error.message; status.classList.add("error"); button.textContent="套用並重新訓練";}
+  finally {button.disabled=false; setTimeout(()=>{button.classList.remove("success"); if(button.textContent==="已套用") button.textContent="套用並重新訓練";},1800);}
+}
+
+function activateSegment(group, value) {
+  group.querySelectorAll(".segment").forEach(button => {
+    const active=button.dataset.value===value;
+    button.setAttribute("aria-checked",active);
+    button.tabIndex=active?0:-1;
+  });
+}
+
+function setupSegmented(group, onChange) {
+  group.addEventListener("click", event => {
+    const button=event.target.closest(".segment");
+    if(!button) return;
+    activateSegment(group,button.dataset.value); onChange(button.dataset.value);
+  });
+  group.addEventListener("keydown", event => {
+    if(!["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].includes(event.key)) return;
+    event.preventDefault();
+    const buttons=[...group.querySelectorAll(".segment")], current=buttons.indexOf(document.activeElement);
+    const next=buttons[(current+(event.key==="ArrowRight"||event.key==="ArrowDown"?1:-1)+buttons.length)%buttons.length];
+    next.focus(); next.click();
+  });
+}
+
+function addModelSegment(method) {
+  const group=document.getElementById("modelSegments");
+  if(group.querySelector(`[data-value="${method}"]`)) return;
+  const button=document.createElement("button");
+  button.className="segment"; button.type="button"; button.role="radio"; button.dataset.value=method; button.setAttribute("aria-checked","false"); button.textContent=method==="Custom"?"Custom 自訂":method;
+  group.appendChild(button);
+}
+
+function setupNumberSlider(inputId, rangeId) {
+  const input=document.getElementById(inputId), range=document.getElementById(rangeId);
+  range.addEventListener("input",()=>{input.value=range.value;updateLivePrediction();});
+  input.addEventListener("input",()=>{if(input.value!=="") range.value=input.value;updateLivePrediction();});
+  input.addEventListener("change",()=>{input.value=Math.min(Number(input.max),Math.max(Number(input.min),Number(input.value)||Number(input.min)));range.value=input.value;updateLivePrediction();});
 }
 
 function initializeInteractivePlatform(details,dataset) {
   dashboardData={...details,dataset};
   const selector=document.getElementById("activeModel");
   selector.innerHTML=details.models.map(model=>`<option value="${model.method}">${model.method}</option>`).join("");
+  details.models.forEach(model=>addModelSegment(model.method));
   const features=["R&D Spend","Administration","Marketing Spend","State"];
-  document.getElementById("featureChecks").innerHTML=features.map(feature=>`<label class="check-chip"><input type="checkbox" value="${feature}" checked> ${feature}</label>`).join("");
-  selector.addEventListener("change",()=>renderActiveModel(dashboardData.models.find(model=>model.method===selector.value)));
+  document.getElementById("featureChecks").innerHTML=features.map(feature=>`<button class="chip" type="button" data-value="${feature}" aria-pressed="true">${feature}</button>`).join("");
+  document.getElementById("featureChecks").addEventListener("click",event=>{const chip=event.target.closest(".chip");if(chip){chip.setAttribute("aria-pressed",chip.getAttribute("aria-pressed")!=="true");document.getElementById("trainingStatus").textContent="設定已變更，請套用並重新訓練。";}});
+  setupSegmented(document.getElementById("modelSegments"),value=>{selector.value=value;renderActiveModel(dashboardData.models.find(model=>model.method===value));});
+  setupSegmented(document.getElementById("cvSegments"),value=>{document.getElementById("cvFolds").value=value;document.getElementById("trainingStatus").textContent="設定已變更，請套用並重新訓練。";});
+  setupSegmented(document.getElementById("stateSegments"),value=>{document.getElementById("predictState").value=value;updateLivePrediction();});
   document.getElementById("trainCustom").addEventListener("click",trainCustomModel);
-  ["predictRD","predictAdmin","predictMarketing","predictState"].forEach(id=>document.getElementById(id).addEventListener("input",updateLivePrediction));
+  [["predictRD","predictRDRange"],["predictAdmin","predictAdminRange"],["predictMarketing","predictMarketingRange"]].forEach(ids=>setupNumberSlider(...ids));
+  document.getElementById("fitIntercept").addEventListener("change",()=>document.getElementById("trainingStatus").textContent="設定已變更，請套用並重新訓練。");
   document.getElementById("resetZoom").addEventListener("click",()=>{actualPredictedChart?.resetZoom();residualChart?.resetZoom();});
   renderActiveModel(details.models[0]);
 }
