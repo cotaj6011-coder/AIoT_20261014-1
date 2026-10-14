@@ -6,7 +6,7 @@
 
 **網站：** [https://cotaj6011-coder.github.io/AIoT_20261014-1/](https://cotaj6011-coder.github.io/AIoT_20261014-1/)
 
-![50 Startups 網站截圖](dic-regression-dashboard-preview.png)
+![50 Startups 完整網站截圖](dic-regression-dashboard-preview-complete.png)
 
 ## 專案說明
 
